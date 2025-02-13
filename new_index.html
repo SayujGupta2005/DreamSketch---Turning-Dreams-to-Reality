@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DreamSketch - AI craftsmanship for sketches</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Quicksand:wght@300;400;500;700&display=swap');
+
+        body {
+            margin: 0;
+            font-family: 'Quicksand', sans-serif;
+            min-height: 100vh;
+            color: white;
+            overflow-x: hidden;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #starryBackground {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+        }
+
+        .header {
+            text-align: center;
+            padding: 20px;
+            z-index: 1;
+        }
+
+        .logo {
+            width: 200px;
+            height: 90px;
+            border-radius: 5px;
+            object-fit: contain;
+            box-shadow: 0 0 0px rgba(255,255,255,0.3);
+        }
+
+        h1 {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 3em;
+            margin: 10px 0;
+            text-shadow: 0 0 20px rgba(255,255,255,0.5);
+        }
+
+        .container {
+            display: flex;
+            gap: 30px;
+            flex-wrap: wrap;
+            justify-content: center;
+            width: 90%;
+            max-width: 1200px;
+        }
+
+        .canvas-container, .result-container {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 0 30px rgba(255,255,255,0.15);
+            width: 480px;
+            text-align: center;
+        }
+
+        canvas {
+            width: 100%;
+            border: 2px solid #ffffff;
+            border-radius: 10px;
+            cursor: crosshair;
+            background: rgb(255, 255, 255);
+        }
+
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 10px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            padding: 10px 15px;
+            border: none;
+            border-radius: 25px;
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-family: 'Quicksand', sans-serif;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        button:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        .loading {
+            display: none;
+            margin: 20px;
+        }
+
+        .result-image {
+            max-width: 100%;
+            border-radius: 10px;
+        }
+
+        .caption {
+            font-style: italic;
+            color: #cccccc;
+            text-align: center;
+            margin-top: 10px;
+        }
+
+        .prompt-text {
+            font-size: 1.1em;
+            color: #ffffff;
+            font-weight: bold;
+            margin-top: 15px;
+            text-align: center;
+            background: rgba(255,255,255,0.1);
+            padding: 10px;
+            border-radius: 8px;
+        }
+
+        .color-picker, .brush-size {
+            margin: 10px 0;
+            color: rgb(255, 255, 255);
+        }
+
+        .brush-size input {
+            width: 100%;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                flex-direction: column;
+                align-items: center;
+            }
+            .canvas-container, .result-container {
+                width: 95%;
+            }
+        }
+
+        .tooltip {
+            position: relative;
+            display: inline-block;
+        }
+
+        .tooltip .tooltiptext {
+            visibility: hidden;
+            width: 120px;
+            background-color: rgba(0, 0, 0, 0.8);
+            color: #fff;
+            text-align: center;
+            border-radius: 6px;
+            padding: 5px;
+            position: absolute;
+            z-index: 1;
+            bottom: 125%;
+            left: 50%;
+            margin-left: -60px;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .tooltip:hover .tooltiptext {
+            visibility: visible;
+            opacity: 1;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="starryBackground"></canvas>
+
+    <div class="header">
+        <img src="logo.png" alt="IIT Jammu Logo" class="logo">
+        <h1>DreamSketch</h1>
+        <p>Transform your sketches into masterpieces</p>
+    </div>
+
+    <div class="container">
+        <div class="canvas-container">
+            <h2>Draw Your Vision</h2>
+            <canvas id="drawingBoard"></canvas>
+            <div class="color-picker">
+                <label for="colorPicker">Color: </label>
+                <input type="color" id="colorPicker" value="#ffffff">
+            </div>
+            <div class="brush-size">
+                <label for="brushSize">Brush Size: </label>
+                <input type="range" id="brushSize" min="1" max="20" value="2">
+            </div>
+            <div class="controls">
+                <button onclick="undo()" class="tooltip">
+                    <i class="fas fa-undo"></i> Undo
+                    <span class="tooltiptext">Undo last action</span>
+                </button>
+                <button onclick="redo()" class="tooltip">
+                    <i class="fas fa-redo"></i> Redo
+                    <span class="tooltiptext">Redo last undone action</span>
+                </button>
+                <button onclick="clearCanvas()" class="tooltip">
+                    <i class="fas fa-trash"></i> Clear
+                    <span class="tooltiptext">Clear the canvas</span>
+                </button>
+                <button onclick="generateImage()" class="tooltip">
+                    <i class="fas fa-magic"></i> Generate
+                    <span class="tooltiptext">Generate AI image</span>
+                </button>
+                <button onclick="saveImage()" class="tooltip">
+                    <i class="fas fa-save"></i> Save
+                    <span class="tooltiptext">Save your artwork</span>
+                </button>
+            </div>
+        </div>
+
+        <div class="result-container">
+            <h2>Generated Artwork</h2>
+            <div id="loading" class="loading">
+                <i class="fas fa-spinner fa-spin"></i> Processing your sketch...
+            </div>
+            <img id="generatedImage" class="result-image" style="display: none;">
+            <p id="caption" class="caption"></p>
+            <p id="promptText" class="prompt-text" style="display: none;"></p>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = "http://127.0.0.1:5000/generate";
+
+        const canvas = document.getElementById('drawingBoard');
+        const ctx = canvas.getContext('2d');
+        let isDrawing = false;
+        let lastX = 0, lastY = 0;
+        let undoStack = [];
+        let redoStack = [];
+
+        function resizeCanvas() {
+            canvas.width = 1920;
+            canvas.height = 1080;
+            canvas.style.width = '100%';
+            canvas.style.height = 'auto';
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            ctx.strokeStyle = document.getElementById('colorPicker').value;
+            ctx.lineWidth = document.getElementById('brushSize').value;
+            ctx.fillStyle = 'white';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+        }
+        
+        resizeCanvas();
+
+        function saveCanvasState() {
+            undoStack.push(canvas.toDataURL());
+            redoStack = [];
+        }
+
+        canvas.addEventListener('mousedown', startDrawing);
+        canvas.addEventListener('mousemove', draw);
+        canvas.addEventListener('mouseup', stopDrawing);
+        canvas.addEventListener('mouseout', stopDrawing);
+
+        canvas.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            const touch = e.touches[0];
+            startDrawing(touch);
+        });
+
+        canvas.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+            const touch = e.touches[0];
+            draw(touch);
+        });
+
+
+        canvas.addEventListener('touchend', stopDrawing);
+
+        function getMousePos(canvas, evt) {
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            return {
+                x: (evt.clientX - rect.left) * scaleX,
+                y: (evt.clientY - rect.top) * scaleY
+            };
+        }
+        
+        function startDrawing(e) {
+            isDrawing = true;
+            const pos = getMousePos(canvas, e);
+            [lastX, lastY] = [pos.x, pos.y];
+            saveCanvasState();
+        }
+        
+        function draw(e) {
+            if (!isDrawing) return;
+            const pos = getMousePos(canvas, e);
+            ctx.beginPath();
+            ctx.moveTo(lastX, lastY);
+            ctx.lineTo(pos.x, pos.y);
+            ctx.stroke();
+            [lastX, lastY] = [pos.x, pos.y];
+        }
+        
+
+        function stopDrawing() {
+            isDrawing = false;
+        }
+
+        function clearCanvas() {
+            saveCanvasState();
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = 'white';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+        }
+
+        function undo() {
+            if (undoStack.length > 0) {
+                redoStack.push(canvas.toDataURL());
+                const imgData = undoStack.pop();
+                const img = new Image();
+                img.src = imgData;
+                img.onload = () => {
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                    ctx.drawImage(img, 0, 0);
+                };
+            }
+        }
+
+        function redo() {
+            if (redoStack.length > 0) {
+                undoStack.push(canvas.toDataURL());
+                const imgData = redoStack.pop();
+                const img = new Image();
+                img.src = imgData;
+                img.onload = () => {
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                    ctx.drawImage(img, 0, 0);
+                };
+            }
+        }
+
+        document.getElementById('colorPicker').addEventListener('change', (e) => {
+            ctx.strokeStyle = e.target.value;
+        });
+
+        document.getElementById('brushSize').addEventListener('input', (e) => {
+            ctx.lineWidth = e.target.value;
+        });
+
+        async function generateImage() {
+            const loading = document.getElementById('loading');
+            const generatedImage = document.getElementById('generatedImage');
+            const captionElement = document.getElementById('caption');
+            const promptElement = document.getElementById('promptText');
+
+            loading.style.display = 'block';
+            generatedImage.style.display = 'none';
+            captionElement.textContent = '';
+            promptElement.style.display = 'none';
+
+            try {
+                const imageData = canvas.toDataURL('image/jpeg', 0.8);
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ image: imageData })
+                });
+
+                const data = await response.json();
+                if (data.error) throw new Error(data.error);
+
+                generatedImage.src = 'data:image/png;base64,' + data.generated_image;
+                generatedImage.style.display = 'block';
+                captionElement.textContent = data.caption;
+
+                promptElement.textContent = `Prompt: "${data.prompt}"`;
+                promptElement.style.display = 'block';
+
+            } catch (error) {
+                alert('Error: ' + error.message);
+            } finally {
+                loading.style.display = 'none';
+            }
+        }
+
+        function saveImage() {
+            const link = document.createElement('a');
+            link.download = 'DreamSketch-sketch.png';
+            link.href = canvas.toDataURL();
+            link.click();
+        }
+        document.addEventListener('keydown', (e) => {
+            if (e.ctrlKey && e.key === 'z') undo();
+            if (e.ctrlKey && e.key === 'y') redo();
+            if (e.key === 'Delete') clearCanvas();
+            if (e.ctrlKey && e.key === 'g') generateImage();
+            if (e.ctrlKey && e.key === 's') {
+                e.preventDefault();
+                saveImage();
+            }
+        });
+        const bgCanvas = document.getElementById('starryBackground');
+        const bgCtx = bgCanvas.getContext('2d');
+
+        bgCanvas.width = window.innerWidth;
+        bgCanvas.height = window.innerHeight;
+        const stars = [];
+        const numStars = 200;
+        const starSize = 2;
+
+        for (let i = 0; i < numStars; i++) {
+            stars.push({
+                x: Math.random() * bgCanvas.width,
+                y: Math.random() * bgCanvas.height,
+                brightness: Math.random()
+            });
+        }
+
+        function animateStars() {
+            bgCtx.clearRect(0, 0, bgCanvas.width, bgCanvas.height);
+            bgCtx.fillStyle = 'black';
+            bgCtx.fillRect(0, 0, bgCanvas.width, bgCanvas.height);
+
+            stars.forEach(star => {
+                const brightness = 0.5 + 0.5 * Math.sin(Date.now() * 0.001 + star.brightness * 10);
+                bgCtx.fillStyle = `rgba(255, 255, 255, ${brightness})`;
+                bgCtx.fillRect(star.x, star.y, starSize, starSize);
+            });
+
+            requestAnimationFrame(animateStars);
+        }
+
+        animateStars();
+
+        window.addEventListener('resize', () => {
+            bgCanvas.width = window.innerWidth;
+            bgCanvas.height = window.innerHeight;
+        });
+    </script>
+</body>
+</html>
